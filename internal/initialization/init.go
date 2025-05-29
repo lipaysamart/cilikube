@@ -37,6 +37,7 @@ type AppServices struct {
 	InstallerService     service.InstallerService // Non-k8s service
 	EventsService        *service.EventsService
 	RbacService          *service.RbacService
+	MetricsScrapeService *service.MetricsScrapeService
 }
 
 // AppHandlers holds all initialized handlers
@@ -59,6 +60,7 @@ type AppHandlers struct {
 	InstallerHandler     *handlers.InstallerHandler // Non-k8s handler
 	EventsHandler        *handlers.EventsHandler
 	RbacHandler          *handlers.RbacHandler
+	MetricsScrapeHandler *handlers.MetricsScrapeHandler
 }
 
 // InitializeServices initializes all application services.
@@ -98,6 +100,7 @@ func InitializeServices(k8sClient *k8s.Client, k8sAvailable bool, cfg *configs.C
 		services.SummaryService = service.NewSummaryService(k8sClient.Clientset)
 		services.EventsService = service.NewEventsService(k8sClient.Clientset)
 		services.RbacService = service.NewRbacService(k8sClient.Clientset)
+		services.MetricsScrapeService = service.NewMetricsScrapeService(k8sClient.Config)
 		log.Println("Kubernetes 相关服务初始化完成。")
 	} else {
 		log.Println("Kubernetes 不可用，跳过相关服务初始化。")
@@ -172,6 +175,9 @@ func InitializeHandlers(services *AppServices) *AppHandlers {
 	}
 	if services.RbacService != nil {
 		appHandlers.RbacHandler = handlers.NewRbacHandler(services.RbacService)
+	}
+	if services.MetricsScrapeService != nil {
+		appHandlers.MetricsScrapeHandler = handlers.NewMetricsScrapeHandler(services.MetricsScrapeService)
 	}
 
 	log.Println("处理器初始化尝试完成 (部分可能因服务未初始化而跳过)。")
@@ -311,6 +317,11 @@ func SetupRouter(cfg *configs.Config, handlers *AppHandlers, k8sAvailable bool) 
 				routes.RegisterRbacRoutes(v1, handlers.RbacHandler)
 			} else {
 				log.Println("跳过 Rbac 路由注册: Handler 未初始化。")
+			}
+			if handlers.MetricsScrapeHandler != nil {
+				routes.RegisterMetricsScrapeRoutes(v1, handlers.MetricsScrapeHandler)
+			} else {
+				log.Println("跳过 MetricsScrape 路由注册: Handler 未初始化。")
 			}
 
 			// Optional check if any K8s routes were registered
